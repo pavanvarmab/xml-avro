@@ -398,6 +398,23 @@ final class SchemaBuilder(config: XSDConfig) {
     val simpleType = schemaType
       .asInstanceOf[XSSimpleTypeDefinition]
 
+    val enumerationFacets = Option(simpleType.getMultiValueFacets)
+      .map(_.asScala)
+      .getOrElse(Seq.empty)
+      .collect {
+        case facet: XSMultiValueFacet if facet.getFacetKind == XSSimpleTypeDefinition.FACET_ENUMERATION => facet
+      }
+
+    if (enumerationFacets.nonEmpty) {
+      val enumSymbols = enumerationFacets.flatMap { facet =>
+        facet.getLexicalFacetValues.asScala.map(_.toString)
+      }
+
+      val enumName = validName(simpleType.getName).getOrElse(generateTypeName)
+      val enumSchema = Schema.createEnum(enumName, null, null, enumSymbols.asJava)
+      return enumSchema
+    }
+
     val schema = simpleType.getBuiltInKind match {
       // Mapping xs:dateTime to logical types
       case XSConstants.DATETIME_DT => {
